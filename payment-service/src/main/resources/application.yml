@@ -1,0 +1,142 @@
+# =============================================================================
+# Payment Service — Application Configuration
+# Spring Boot 3.x | Java 21 | H2 | Apache Kafka | Springdoc OpenAPI
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Server
+# -----------------------------------------------------------------------------
+server:
+  port: 8084
+  servlet:
+    context-path: /
+
+# -----------------------------------------------------------------------------
+# Spring Core
+# -----------------------------------------------------------------------------
+spring:
+
+  application:
+    name: payment-service
+
+  profiles:
+    active: dev
+
+  # ---------------------------------------------------------------------------
+  # Jackson (JSON Serialisation)
+  # ---------------------------------------------------------------------------
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+
+  # ---------------------------------------------------------------------------
+  # DataSource — H2 In-Memory Database
+  # ---------------------------------------------------------------------------
+  datasource:
+    url: jdbc:h2:mem:paymentdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:password}
+
+  # ---------------------------------------------------------------------------
+  # H2 Console (accessible at http://localhost:8084/h2-console)
+  # ---------------------------------------------------------------------------
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: false     # Restrict to localhost only
+
+  # ---------------------------------------------------------------------------
+  # JPA / Hibernate
+  # ---------------------------------------------------------------------------
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop         # Re-creates schema on every start (dev mode)
+    show-sql: true                  # Log all SQL statements
+    properties:
+      hibernate:
+        format_sql: true            # Pretty-print SQL in logs
+        use_sql_comments: true      # Include HQL comments in SQL output
+
+  # ---------------------------------------------------------------------------
+  # Apache Kafka
+  # ---------------------------------------------------------------------------
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    # ── Producer ──────────────────────────────────────────────────────────────
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all                     # Wait for all in-sync replicas to acknowledge
+      retries: 3
+      properties:
+        spring.json.add.type.headers: true   # Include __TypeId__ header for consumers
+
+    # ── Consumer ──────────────────────────────────────────────────────────────
+    consumer:
+      group-id: payment-service-group
+      auto-offset-reset: earliest   # Start consuming from beginning if no offset
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.type.mapping: "com.ecommerce.orderservice.event.OrderCreatedEvent:com.ecommerce.paymentservice.infrastructure.messaging.event.OrderCreatedEvent"
+
+    # ── Listener ──────────────────────────────────────────────────────────────
+    listener:
+      ack-mode: MANUAL_IMMEDIATE    # Explicit acknowledgement for at-least-once delivery
+      missing-topics-fatal: false   # Do not fail on startup if topics are absent
+
+# -----------------------------------------------------------------------------
+# Springdoc OpenAPI / Swagger UI
+# -----------------------------------------------------------------------------
+springdoc:
+  api-docs:
+    path: /api-docs                 # OpenAPI JSON → http://localhost:8084/api-docs
+  swagger-ui:
+    path: /swagger-ui.html          # Swagger UI  → http://localhost:8084/swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    try-it-out-enabled: true
+  show-actuator: false
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+logging:
+  level:
+    root: INFO
+    com.ecommerce.paymentservice: DEBUG
+    org.springframework.kafka: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# -----------------------------------------------------------------------------
+# Payment Service — Custom Application Properties
+# -----------------------------------------------------------------------------
+payment:
+  kafka:
+    topics:
+      # Producer topics (published by this service)
+      payment-initiated: payment.initiated
+      payment-completed: payment.completed
+      payment-failed: payment.failed
+      payment-cancelled: payment.cancelled
+      refund-completed: refund.completed
+      refund-failed: refund.failed
+      # Consumer topics (subscribed by this service)
+      order-confirmed: order.confirmed
+      order-cancelled: order.cancelled
+  gateway:
+    # Simulated payment gateway threshold (amounts above this are auto-declined)
+    max-auto-approve-amount: 10000.00
+    # Simulated processing delay in milliseconds
+    processing-delay-ms: 200

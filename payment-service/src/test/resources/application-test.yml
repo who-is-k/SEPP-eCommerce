@@ -1,0 +1,43 @@
+# =============================================================================
+# Payment Service — Test Configuration
+# Overrides specific properties for the test environment.
+# =============================================================================
+
+spring:
+  # Isolated in-memory DB for tests (separate from dev DB)
+  datasource:
+    url: jdbc:h2:mem:paymentdb_test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: password
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+  # Disable H2 console in tests
+  h2:
+    console:
+      enabled: false
+
+  # Disable Kafka entirely in tests
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+# Provide dummy values for @Value-injected Kafka topic names
+payment:
+  kafka:
+    topics:
+      payment-initiated: payment.initiated
+      payment-completed: payment.completed
+      payment-failed: payment.failed
+      payment-cancelled: payment.cancelled
+      refund-completed: refund.completed
+      refund-failed: refund.failed
+      order-confirmed: order.confirmed
+      order-cancelled: order.cancelled
+
+logging:
+  level:
+    root: WARN
+    com.ecommerce.paymentservice: INFO
