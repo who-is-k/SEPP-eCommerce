@@ -29,3 +29,7 @@ Thumbs.db
 .env.*
 !.env.example
 application-local.*
+
+# Ignore oversized oracle JDK module bundle
+customer-service/src/main/java/com/ecommerce/customerservice/infrastructure/messaging/producer/oracleJdk-27/lib/modules
+
